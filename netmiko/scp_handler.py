@@ -17,6 +17,13 @@ import hashlib
 import scp
 import platform
 
+try:
+    import psutil
+
+    PSUTIL_INSTALLED = True
+except ImportError:
+    PSUTIL_INSTALLED = False
+
 
 class SCPConn(object):
     """
@@ -151,13 +158,13 @@ class BaseFileTransfer(object):
     def local_space_available(self):
         """Return space available on local filesystem."""
         if platform.system() == "Windows":
-            import ctypes
-
-            free_bytes = ctypes.c_ulonglong(0)
-            ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                ctypes.c_wchar_p("."), None, None, ctypes.pointer(free_bytes)
-            )
-            return free_bytes.value
+            if not PSUTIL_INSTALLED:
+                msg = (
+                    "\npsutil is not installed. Please PIP install psutil to use SCP"
+                    " with Windows"
+                )
+                raise ValueError(msg)
+            return psutil.disk_usage(".").free
         else:
             destination_stats = os.statvfs(".")
             return destination_stats.f_bsize * destination_stats.f_bavail
