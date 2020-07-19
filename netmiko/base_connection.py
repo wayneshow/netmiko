@@ -77,7 +77,7 @@ class BaseConnection(object):
         default_enter=None,
         response_return=None,
         serial_settings=None,
-        fast_cli=False,
+        fast_cli=True,
         session_log=None,
         session_log_record_writes=False,
         session_log_file_mode="write",
@@ -520,72 +520,24 @@ class BaseConnection(object):
             self._unlock_netmiko_session()
         return output
 
-    def _read_channel_expect(self, pattern="", re_flags=0, max_loops=150):
-        """Function that reads channel until pattern is detected.
-
-        pattern takes a regular expression.
-
-        By default pattern will be self.base_prompt
-
-        Note: this currently reads beyond pattern. In the case of SSH it reads MAX_BUFFER.
-        In the case of telnet it reads all non-blocking data.
-
-        There are dependencies here like determining whether in config_mode that are actually
-        depending on reading beyond pattern.
-
-        :param pattern: Regular expression pattern used to identify the command is done \
-        (defaults to self.base_prompt)
-        :type pattern: str (regular expression)
-
-        :param re_flags: regex flags used in conjunction with pattern to search for prompt \
-        (defaults to no flags)
-        :type re_flags: int
-
-        :param max_loops: max number of iterations to read the channel before raising exception.
-            Will default to be based upon self.timeout.
-        :type max_loops: int
-        """
+    def _read_loop(self, pattern, re_flags=0):
+        """Read from channel until either timeout or pattern detected."""
         output = ""
-        if not pattern:
-            pattern = re.escape(self.base_prompt)
-        log.debug(f"Pattern is: {pattern}")
-
-        i = 1
-        loop_delay = 0.1
-        # Default to making loop time be roughly equivalent to self.timeout (support old max_loops
-        # argument for backwards compatibility).
-        if max_loops == 150:
-            max_loops = int(self.timeout / loop_delay)
-        while i < max_loops:
-            if self.protocol == "ssh":
-                try:
-                    # If no data available will wait timeout seconds trying to read
-                    self._lock_netmiko_session()
-                    new_data = self.remote_conn.recv(MAX_BUFFER)
-                    if len(new_data) == 0:
-                        raise EOFError("Channel stream closed by remote device.")
-                    new_data = new_data.decode("utf-8", "ignore")
-                    if self.ansi_escape_codes:
-                        new_data = self.strip_ansi_escape_codes(new_data)
-                    log.debug(f"_read_channel_expect read_data: {new_data}")
-                    output += new_data
-                    self._write_session_log(new_data)
-                except socket.timeout:
-                    raise NetmikoTimeoutException(
-                        "Timed-out reading channel, data not available."
-                    )
-                finally:
-                    self._unlock_netmiko_session()
-            elif self.protocol == "telnet" or "serial":
-                output += self.read_channel()
+        read_timeout = time.time() + 30
+        while time.time() < read_timeout:
+            output += self.read_channel()
             if re.search(pattern, output, flags=re_flags):
-                log.debug(f"Pattern found: {pattern} {output}")
                 return output
-            time.sleep(loop_delay * self.global_delay_factor)
-            i += 1
+            time.sleep(.05)
         raise NetmikoTimeoutException(
             f"Timed-out reading channel, pattern not found in output: {pattern}"
         )
+
+    def _read_channel_expect(self, pattern="", re_flags=0, max_loops=150):
+        """Read channel until pattern is detected."""
+        if not pattern:
+            pattern = re.escape(self.base_prompt)
+        return self._read_loop(pattern, re_flags=re_flags)
 
     def _read_channel_timing(self, delay_factor=1, max_loops=150):
         """Read data on the channel based on timing delays.
