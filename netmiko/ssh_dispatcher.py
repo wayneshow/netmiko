@@ -54,6 +54,7 @@ from netmiko.f5 import F5LinuxSSH
 from netmiko.flexvnf import FlexvnfSSH
 from netmiko.fortinet import FortinetSSH
 from netmiko.hp import HPProcurveSSH, HPProcurveTelnet, HPComwareSSH, HPComwareTelnet
+from netmiko.h3c import H3cSSH
 from netmiko.huawei import HuaweiSSH, HuaweiVrpv8SSH, HuaweiTelnet
 from netmiko.huawei import HuaweiSmartAXSSH
 from netmiko.ipinfusion import IpInfusionOcNOSSSH, IpInfusionOcNOSTelnet
@@ -166,6 +167,7 @@ CLASS_MAPPER_BASE = {
     "generic_termserver": TerminalServerSSH,
     "hp_comware": HPComwareSSH,
     "hp_procurve": HPProcurveSSH,
+    "h3c": H3cSSH,
     "huawei": HuaweiSSH,
     "huawei_smartax": HuaweiSmartAXSSH,
     "huawei_olt": HuaweiSmartAXSSH,
